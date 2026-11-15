@@ -329,6 +329,9 @@ def ler_decimal(pergunta, minimo, maximo):
 
 
 def calcular_qualidade(horas, temperatura):
+    if temperatura < 15:
+        return None
+
     if temperatura <= 30:
         taxa = K_CONTROLADO
     else:
@@ -341,7 +344,12 @@ def simular_qualidade():
     print("\nQUALIDADE ESTIMADA DA ROTA")
 
     horas = ler_decimal("Tempo em horas (0 a 24): ", 0, 24)
-    temperatura = ler_decimal("Temperatura (15 a 100 C): ", 15, 100)
+    temperatura = ler_decimal("Temperatura (0 a 100 C): ", 0, 100)
+
+    if temperatura < 15:
+        print("Temperatura aceita, mas sem coeficiente definido abaixo de 15 C.")
+        print("Rota nao aprovada pelo modelo matematico.")
+        return
 
     if temperatura <= 30:
         taxa = K_CONTROLADO
@@ -396,7 +404,7 @@ def cadastrar_veiculo():
     chegada = ler_horario()
     capacidade = ler_inteiro("Capacidade ociosa em caixas: ", 1)
     horas = ler_decimal("Duracao da rota (horas): ", 0.01, 24)
-    temperatura = ler_decimal("Temperatura prevista (15 a 100 C): ", 15, 100)
+    temperatura = ler_decimal("Temperatura prevista (0 a 100 C): ", 0, 100)
 
     veiculo = {
         "nome": nome,
@@ -452,7 +460,7 @@ def alocar_compra():
             veiculo["horas"], veiculo["temperatura"]
         )
 
-        if qualidade < Q_MIN:
+        if qualidade is None or qualidade < Q_MIN:
             continue
 
         veiculo["capacidade"] -= escolhida["caixas"]
