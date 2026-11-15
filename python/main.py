@@ -1,13 +1,14 @@
+import math
+
 # ELOS - cadastros iniciais
 # Dados usados apenas durante a execução do programa.
 
 bairros = [
-    {"nome": "Itaquera", "indice": 0.30},
-    {"nome": "Guaianases", "indice": 0.60},
-    {"nome": "Cidade Tiradentes", "indice": 0.90}
+    {"nome": "Itaquera"},
+    {"nome": "Guaianases"},
+    {"nome": "Cidade Tiradentes"}
 ]
 
-# Os índices acima são exemplos de teste, não dados oficiais.
 
 demandas = []
 ofertas = []
@@ -19,6 +20,17 @@ def ler_texto(mensagem):
         if texto != "":
             return texto
         print("Esse campo não pode ficar vazio.")
+
+
+def ler_produto():
+    while True:
+        produto = ler_texto("Produto: ").lower()
+
+        for letra in produto:
+            if letra.isalpha():
+                return produto
+
+        print("Informe um alimento, como banana ou tomate.")
 
 
 def ler_inteiro(mensagem, minimo):
@@ -58,7 +70,7 @@ def escolher_bairro():
 def cadastrar_demanda():
     print("\nCADASTRO DE DEMANDA")
     comerciante = ler_texto("Nome do comércio: ")
-    produto = ler_texto("Produto: ").lower()
+    produto = ler_produto()
     caixas = ler_inteiro("Quantidade de caixas: ", 1)
     bairro = escolher_bairro()
 
@@ -68,7 +80,6 @@ def cadastrar_demanda():
         "produto": produto,
         "caixas": caixas,
         "bairro": bairro["nome"],
-        "indice": bairro["indice"],
         "status": "ABERTA"
     }
 
@@ -79,7 +90,7 @@ def cadastrar_demanda():
 def cadastrar_oferta():
     print("\nCADASTRO DE OFERTA")
     fornecedor = ler_texto("Nome do fornecedor: ")
-    produto = ler_texto("Produto: ").lower()
+    produto = ler_produto()
 
     print("1 - Venda")
     print("2 - Doação")
@@ -137,8 +148,7 @@ def listar_demandas():
     for demanda in demandas:
         print(demanda["id"], "-", demanda["comerciante"], "-",
               demanda["produto"], "-", demanda["caixas"], "caixas -",
-              demanda["bairro"], "- índice:", demanda["indice"],
-              "-", demanda["status"])
+              demanda["bairro"], "-", demanda["status"])
 
 
 def listar_ofertas():
@@ -161,8 +171,8 @@ def formar_compra_coletiva():
     print("COMPRAS COLETIVAS")
     encontrou = False
 
-    # Bairros com índice maior são atendidos primeiro.
-    bairros_ordenados = sorted(bairros, key=lambda b: b["indice"], reverse=True)
+    # Agrupa os pedidos por bairro e produto.
+    bairros_ordenados = bairros
 
     for bairro in bairros_ordenados:
         produtos = []
@@ -295,6 +305,172 @@ def confirmar_compra():
     print("Compra não encontrada.")
 
 
+# Modelo matematico de qualidade da ELOS
+Q0 = 100.0
+Q_MIN = 80.0
+K_CONTROLADO = 0.015
+K_ESTRESSE = 0.085
+
+veiculos = []
+
+
+def ler_decimal(pergunta, minimo, maximo):
+    while True:
+        try:
+            numero = float(input(pergunta).replace(",", "."))
+
+            if math.isfinite(numero) and minimo <= numero <= maximo:
+                return numero
+
+        except ValueError:
+            pass
+
+        print("Digite um numero entre", minimo, "e", maximo)
+
+
+def calcular_qualidade(horas, temperatura):
+    if temperatura <= 30:
+        taxa = K_CONTROLADO
+    else:
+        taxa = K_ESTRESSE
+
+    return Q0 * math.exp(-taxa * horas)
+
+
+def simular_qualidade():
+    print("\nQUALIDADE ESTIMADA DA ROTA")
+
+    horas = ler_decimal("Tempo em horas (0 a 24): ", 0, 24)
+    temperatura = ler_decimal("Temperatura (15 a 100 C): ", 15, 100)
+
+    if temperatura <= 30:
+        taxa = K_CONTROLADO
+    else:
+        taxa = K_ESTRESSE
+
+    qualidade = calcular_qualidade(horas, temperatura)
+    tempo_maximo = -math.log(Q_MIN / Q0) / taxa
+
+    print("Qualidade estimada: {:.2f}%".format(qualidade))
+    print("Tempo limite no modelo: {:.2f} horas".format(tempo_maximo))
+
+    if qualidade >= Q_MIN:
+        print("APROVADA pelo modelo matematico.")
+    else:
+        print("BLOQUEADA pelo modelo matematico.")
+
+    print("Resultado simulado, sem certificacao sanitaria.")
+
+
+def ler_horario():
+    while True:
+        horario = input("Chegada prevista (HH:MM): ").strip()
+        partes = horario.split(":")
+
+        if len(partes) == 2:
+            try:
+                hora = int(partes[0])
+                minuto = int(partes[1])
+
+                if 0 <= hora <= 23 and 0 <= minuto <= 59:
+                    return "{:02d}:{:02d}".format(hora, minuto)
+
+            except ValueError:
+                pass
+
+        print("Horario invalido. Exemplo: 07:30")
+
+
+def cadastrar_veiculo():
+    print("\nCADASTRAR VEICULO")
+
+    nome = ler_texto("Identificacao do veiculo: ")
+    rota = input("Possui rota fixa? (s/n): ").strip().lower()
+
+    if rota != "s":
+        print("Cadastro recusado. Apenas rotas fixas.")
+        return
+
+    bairro = escolher_bairro()
+    dia = ler_texto("Dia da semana: ")
+    chegada = ler_horario()
+    capacidade = ler_inteiro("Capacidade ociosa em caixas: ", 1)
+    horas = ler_decimal("Duracao da rota (horas): ", 0.01, 24)
+    temperatura = ler_decimal("Temperatura prevista (15 a 100 C): ", 15, 100)
+
+    veiculo = {
+        "nome": nome,
+        "bairro": bairro["nome"],
+        "dia": dia,
+        "chegada": chegada,
+        "capacidade": capacidade,
+        "horas": horas,
+        "temperatura": temperatura
+    }
+
+    veiculos.append(veiculo)
+    print("Veiculo cadastrado com sucesso!")
+
+
+def alocar_compra():
+    print("\nALOCAR COMPRA EM ROTA FIXA")
+
+    confirmadas = []
+
+    for compra in compras:
+        if compra["status"] == "CONFIRMADA":
+            confirmadas.append(compra)
+            print(compra["id"], "-", compra["produto"], "-",
+                  compra["bairro"], "-", compra["caixas"], "caixas")
+
+    if len(confirmadas) == 0:
+        print("Nenhuma compra confirmada.")
+        return
+
+    numero = ler_inteiro("Numero da compra: ", 1)
+    escolhida = None
+
+    for compra in confirmadas:
+        if compra["id"] == numero:
+            escolhida = compra
+
+    if escolhida is None:
+        print("Compra nao encontrada.")
+        return
+
+    for veiculo in veiculos:
+        if veiculo["bairro"] != escolhida["bairro"]:
+            continue
+
+        if veiculo["chegada"] > "08:00":
+            continue
+
+        if veiculo["capacidade"] < escolhida["caixas"]:
+            continue
+
+        qualidade = calcular_qualidade(
+            veiculo["horas"], veiculo["temperatura"]
+        )
+
+        if qualidade < Q_MIN:
+            continue
+
+        veiculo["capacidade"] -= escolhida["caixas"]
+        escolhida["status"] = "ALOCADA"
+
+        print("Alocacao confirmada!")
+        print("Veiculo:", veiculo["nome"])
+        print("Bairro:", veiculo["bairro"])
+        print("Dia:", veiculo["dia"])
+        print("Chegada:", veiculo["chegada"])
+        print("Qualidade estimada: {:.2f}%".format(qualidade))
+        print("Capacidade restante:", veiculo["capacidade"], "caixas")
+        return
+
+    print("Nenhuma rota compativel encontrada.")
+    print("Verifique bairro, horario, capacidade ou qualidade.")
+
+
 while True:
     print("\n=== ELOS ===")
     print("1 - Cadastrar demanda")
@@ -303,6 +479,9 @@ while True:
     print("4 - Listar ofertas")
     print("5 - Formar compra coletiva")
     print("6 - Confirmar compra coletiva")
+    print("7 - Estimar qualidade da rota")
+    print("8 - Cadastrar veiculo")
+    print("9 - Alocar compra")
     print("0 - Sair")
 
     opcao = input("Escolha: ").strip()
@@ -320,6 +499,12 @@ while True:
             formar_compra_coletiva()
         case "6":
             confirmar_compra()
+        case "7":
+            simular_qualidade()
+        case "8":
+            cadastrar_veiculo()
+        case "9":
+            alocar_compra()
         case "0":
             print("Programa encerrado.")
             break
