@@ -152,12 +152,157 @@ def listar_ofertas():
               oferta["categoria"], "- R$", format(oferta["preco"], ".2f"))
 
 
+
+compras = []
+
+
+def formar_compra_coletiva():
+    print()
+    print("COMPRAS COLETIVAS")
+    encontrou = False
+
+    # Bairros com índice maior são atendidos primeiro.
+    bairros_ordenados = sorted(bairros, key=lambda b: b["indice"], reverse=True)
+
+    for bairro in bairros_ordenados:
+        produtos = []
+
+        for demanda in demandas:
+            pendente = demanda["caixas"] - demanda.get("reservadas", 0)
+
+            if demanda["bairro"] == bairro["nome"] and pendente > 0:
+                if demanda["produto"] not in produtos:
+                    produtos.append(demanda["produto"])
+
+        for produto in produtos:
+            encontrou = True
+            participantes = []
+            total = 0
+
+            for demanda in demandas:
+                pendente = demanda["caixas"] - demanda.get("reservadas", 0)
+
+                if demanda["bairro"] == bairro["nome"] and demanda["produto"] == produto and pendente > 0:
+                    participantes.append(demanda)
+                    total += pendente
+
+            print()
+            print(produto.title(), "-", bairro["nome"], "-", total, "caixas solicitadas")
+
+            for demanda in participantes:
+                pendente = demanda["caixas"] - demanda.get("reservadas", 0)
+                print(" ", demanda["comerciante"], "-", pendente, "caixa(s)")
+
+            if total < 10:
+                print("Grupo incompleto. Faltam", 10 - total, "caixa(s).")
+                continue
+
+            oferta_escolhida = None
+
+            for oferta in ofertas:
+                if oferta["produto"] == produto and oferta["caixas"] >= 10:
+                    oferta_escolhida = oferta
+                    break
+
+            if oferta_escolhida is None:
+                print("Sem match: não existe oferta com pelo menos 10 caixas disponíveis.")
+                continue
+
+            disponivel = oferta_escolhida["caixas"]
+            cotas = []
+
+            for demanda in participantes:
+                pendente = demanda["caixas"] - demanda.get("reservadas", 0)
+                quantidade = min(pendente, disponivel)
+
+                if quantidade > 0:
+                    demanda["reservadas"] = demanda.get("reservadas", 0) + quantidade
+
+                    if demanda["reservadas"] == demanda["caixas"]:
+                        demanda["status"] = "RESERVADA"
+                    else:
+                        demanda["status"] = "PARCIAL"
+
+                    cotas.append((demanda["id"], quantidade))
+                    disponivel -= quantidade
+
+            reservado = oferta_escolhida["caixas"] - disponivel
+            oferta_escolhida["caixas"] = disponivel
+            oferta_escolhida["status"] = "RESERVADO"
+
+            compra = {
+                "id": len(compras) + 1,
+                "produto": produto,
+                "bairro": bairro["nome"],
+                "caixas": reservado,
+                "cotas": cotas,
+                "status": "AGUARDANDO CONFIRMAÇÃO"
+            }
+
+            compras.append(compra)
+
+            if reservado == total:
+                print("Match completo!", reservado, "caixas reservadas.")
+            else:
+                print("Match parcial!", reservado, "de", total, "caixas reservadas.")
+                print("O restante continua pendente.")
+
+            print("Compra", compra["id"], "aguardando confirmação manual.")
+
+    if not encontrou:
+        print("Não existem demandas pendentes para agrupar.")
+
+
+def confirmar_compra():
+    if len(compras) == 0:
+        print("Nenhuma compra coletiva foi criada.")
+        return
+
+    print()
+    print("COMPRAS COLETIVAS")
+
+    for compra in compras:
+        print(compra["id"], "-", compra["produto"], "-", compra["bairro"],
+              "-", compra["caixas"], "caixas -", compra["status"])
+
+    numero = ler_inteiro("Número da compra para confirmar: ", 1)
+
+    for compra in compras:
+        if compra["id"] == numero:
+            if compra["status"] == "CONFIRMADA":
+                print("Essa compra já foi confirmada.")
+                return
+
+            print("Confirmar as cotas dos comerciantes:")
+
+            for id_demanda, quantidade in compra["cotas"]:
+                for demanda in demandas:
+                    if demanda["id"] == id_demanda:
+                        resposta = input(
+                            demanda["comerciante"] + " - " +
+                            str(quantidade) + " caixas (s/n): "
+                        ).strip().lower()
+
+                        if resposta != "s":
+                            print("Confirmação pendente. As caixas seguem reservadas.")
+                            return
+
+            compra["status"] = "CONFIRMADA"
+            print("Compra", numero, "confirmada!")
+            print("Janela de 30 minutos apenas simulada, sem cronômetro real.")
+            return
+
+    print("Compra não encontrada.")
+
+
 while True:
     print("\n=== ELOS ===")
     print("1 - Cadastrar demanda")
     print("2 - Cadastrar oferta")
     print("3 - Listar demandas")
     print("4 - Listar ofertas")
+    print("5 - Formar compra coletiva")
+    print("6 - Confirmar compra coletiva")
     print("0 - Sair")
 
     opcao = input("Escolha: ").strip()
@@ -171,6 +316,10 @@ while True:
             listar_demandas()
         case "4":
             listar_ofertas()
+        case "5":
+            formar_compra_coletiva()
+        case "6":
+            confirmar_compra()
         case "0":
             print("Programa encerrado.")
             break
